@@ -1,0 +1,3 @@
+#!/bin/bash
+
+scalac-2.9 Snake.scala

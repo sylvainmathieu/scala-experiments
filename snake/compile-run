@@ -1,0 +1,4 @@
+#!/bin/bash
+
+scalac-2.9 Snake.scala
+scala-2.9 snake.App

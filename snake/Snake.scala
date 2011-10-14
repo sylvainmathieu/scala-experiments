@@ -1,5 +1,6 @@
 package snake
 
+import scala.util.{Random}
 import swing.{SimpleSwingApplication, MainFrame, Panel, event}
 import event.{KeyPressed}
 
@@ -10,7 +11,7 @@ object App extends SimpleSwingApplication {
 	import java.awt.event.{ActionEvent}
 	import javax.swing.{Timer, AbstractAction}
 
-	var game = Game.newGame
+	var game = new Game(new Grid(20, 20))
 
 	override def top = frame
 
@@ -43,90 +44,93 @@ object App extends SimpleSwingApplication {
 			case Right => game.moveBy(1, 0)
 			case Up => game.moveBy(0, -1)
 			case Down => game.moveBy(0, 1)
-			case Space => game.restart
 			case _ =>
 		}
 
 		val timer = new Timer(100, new AbstractAction() {
 			override def actionPerformed(e: ActionEvent) {
-				game = game.tick
+				game.tick
 				repaint()
 			}
 		})
 
 		timer.start
 
+		def stopTimer = timer.stop;
+
 	}
 
 	def onPaint(g: Graphics2D) {
 
 		def drawBlock(x: Int, y: Int) {
-			g.draw(new Rectangle(x * 10, y * 10, 10, 10))
+			g.draw(new Rectangle(x * 10 + 1, y * 10 + 1, 8, 8))
+		}
+
+		if (game.isOver) {
+			frame.stopTimer
 		}
 
 		g.setColor(Color.gray)
 
-		// Draw grid
 		game.grid.forEach { (x: Int, y: Int) =>
 			if (game.grid.get(x, y) > 0) drawBlock(x, y)
 		}
 
-	}
+		g.setColor(Color.green)
 
-}
+		drawBlock(game.foodPosition.x, game.foodPosition.y)
 
-object Game {
-
-	def newGame = {
-		new Game(new Grid(20, 20))
 	}
 
 }
 
 class Game(val grid: Grid) {
 
-	var currentMove = new Position(1, 0)
+	var currentMove = (1, 0)
+	var nextMove = (1, 0)
 	var currentPosition = new Position(10, 10)
+	var isOver = false
+	var foodPosition = grid.popFood
+	var lifeTime = 10
 
-	def tick: Game = {
+	def tick = {
+		currentMove = nextMove
 		currentPosition = currentPosition.move(currentMove)
 
-		grid.pop(currentPosition)
-
-		if(!grid.check()) {
-			over()
+		grid.forEach { (x: Int, y: Int) =>
+			grid.set(x, y, grid.get(x, y) - 1)
 		}
 
-		return this
-	}
-
-	def moveBy(x: Int, y: Int) = {
-		currentMove = new Position(x, y)
-	}
-
-	def over() = {
+		if (currentPosition == foodPosition)
+			eat
+		if (currentPosition.isOut(grid) || currentPosition.isOnObstacle(grid))
+			isOver = true
+		else grid.pop(currentPosition, lifeTime)
 
 	}
 
-	def restart() = {
+	def moveBy(move: Tuple2[Int, Int]) = {
+		if (move != (currentMove._1 * (-1), currentMove._2 * (-1)))
+			nextMove = move
+	}
 
+	def eat = {
+		lifeTime += 1
+		foodPosition = grid.popFood
 	}
 
 }
 
-object Grid {
+class Grid(val width: Int, val height: Int) {
 
-}
-
-class Grid(width: Int, height: Int) {
-
-	var grid =
-			(for (y <- 0 until height)
-				yield
-					(for (x <- 0 until width)
-						yield 0
-					).toArray
-			).toArray
+	var grid = {
+		(for (y <- 0 until height)
+			yield
+				(for (x <- 0 until width)
+					yield 0
+				).toArray
+		).toArray
+	}
 
 	def forEach(func: (Int, Int) => Any) {
 		for (y <- 0 until height; x <- 0 until width)
@@ -137,20 +141,32 @@ class Grid(width: Int, height: Int) {
 
 	def get(x: Int, y: Int): Int = grid(x)(y)
 
-	def pop(pos: Position) = set(pos.x, pos.y, 10)
+	def pop(pos: Position, lifeTime: Int) = set(pos.x, pos.y, lifeTime)
 
-	def check(): Boolean = {
-		true
+	def popFood: Position = {
+
+		val rand = new Random()
+
+		def foodPosition: Position = {
+			val pos = new Position(rand.nextInt(width), rand.nextInt(height))
+			if (pos.isOnObstacle(this)) foodPosition
+			return pos
+		}
+
+		return foodPosition
+
 	}
 
 }
 
 class Position(val x: Int, val y: Int) {
 
-	def += (move: Tuple2[Int, Int]) {
-		new Position(x + move._1, y + move._2)
-	}
+	def ==(pos: Position) = pos.x == x && pos.y == y
 
-	def move(move: Position) = new Position(x + move.x, y + move.y)
+	def move(move: Tuple2[Int, Int]) = new Position(x + move._1, y + move._2)
+
+	def isOut(grid: Grid): Boolean = x < 0 || x >= grid.width || y < 0 || y >= grid.height
+
+	def isOnObstacle(grid: Grid): Boolean = grid.get(x, y) > 0
 
 }

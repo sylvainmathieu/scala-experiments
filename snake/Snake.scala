@@ -67,15 +67,15 @@ object App extends SimpleSwingApplication {
 
 		if (game.over) frame.timer.stop
 
+		// Display Food
+		g.setColor(Color.green)
+		drawBlock(game.foodPosition.x, game.foodPosition.y)
+
 		// Display Snake
 		g.setColor(Color.gray)
 		game.grid.snake.foreach { cell: Cell =>
 			drawBlock(cell.x, cell.y)
 		}
-
-		// Display Food
-		g.setColor(Color.green)
-		drawBlock(game.foodPosition.x, game.foodPosition.y)
 
 	}
 
@@ -150,7 +150,7 @@ class Grid(
 	def popFood: Position = {
 		def foodPosition: Position = {
 			val position = new Position(Random.nextInt(width), Random.nextInt(height))
-			if (isOnObstacle(position)) foodPosition
+			if (isOnObstacle(position)) return foodPosition
 			return position
 		}
 		return foodPosition

@@ -64,11 +64,12 @@ object App extends SimpleSwingApplication {
 		}
 
 		game = game.tick
+
 		if (game.over) frame.timer.stop
 
 		// Display Snake
 		g.setColor(Color.gray)
-		game.grid.foreach { cell: Cell =>
+		game.grid.snake.foreach { cell: Cell =>
 			drawBlock(cell.x, cell.y)
 		}
 
@@ -83,39 +84,37 @@ object App extends SimpleSwingApplication {
 object Game {
 
 	def newGame: Game = {
-		new Game(Grid.newGrid, new Position(10, 10), (0, 1), new Position(2, 2))
+		new Game(Grid.newGrid, (0, 1), new Position(2, 2))
 	}
 
 }
 
 class Game(
 	val grid: Grid,
-	val initPosition: Position,
-	val initMove: Tuple2[Int, Int],
+	val lastMove: Tuple2[Int, Int],
 	val foodPosition: Position) {
 
-	var nextMove = (1, 0)
+	var nextMove = lastMove
 
 	def tick: Game = {
 		val eatResult = eat
-		val nextPosition = initPosition + nextMove
-		val newGrid = new Grid(grid.grid, nextPosition, eatResult._2)
-		new Game(newGrid.tick, nextPosition, nextMove, eatResult._1)
+		val newGrid = new Grid(grid.snake, grid.playerPosition + nextMove, eatResult._2)
+		new Game(newGrid.tick, nextMove, eatResult._1)
 	}
 
 	def moveBy(move: Tuple2[Int, Int]) = {
-		if (move != (initMove._1 * (-1), initMove._2 * (-1)))
+		if (move != (lastMove._1 * (-1), lastMove._2 * (-1)))
 			nextMove = move
 	}
 
 	def eat: Tuple2[Position, Int] = {
-		if (grid.nextPosition == foodPosition) {
+		if (grid.playerPosition == foodPosition) {
 			(grid.popFood, grid.lifeTime + 1)
 		}
-		(foodPosition, grid.lifeTime)
+		else (foodPosition, grid.lifeTime)
 	}
 
-	def over: Boolean = initPosition.isOut(grid) || initPosition.isOnObstacle(grid)
+	def over: Boolean = grid.isPlayerOut || grid.isPlayerOnObstacle
 
 }
 
@@ -126,40 +125,47 @@ object Grid {
 }
 
 class Grid(
-	val grid: List[Cell],
-	val nextPosition: Position,
+	val snake: List[Cell],
+	val playerPosition: Position,
 	val lifeTime: Int
 ) {
 
 	val width = 20
 	val height = 20
 
-	def foreach(func: Cell => Unit) = grid.foreach(func)
-
 	def tick: Grid = {
 		new Grid(
-			new Cell(nextPosition.x, nextPosition.y, lifeTime) :: decrement(grid),
-			nextPosition,
+			new Cell(playerPosition.x, playerPosition.y, lifeTime) :: decrement(snake),
+			playerPosition,
 			lifeTime
 		)
 	}
 
-	def decrement(initGrid: List[Cell]) = {
-		initGrid.map{ cell: Cell =>
+	def decrement(initSnake: List[Cell]) = {
+		initSnake.map{ cell: Cell =>
 			new Cell(cell.x, cell.y, cell.lifeTime - 1)
 		}.filter(_.lifeTime >= 1)
 	}
 
 	def popFood: Position = {
-
 		def foodPosition: Position = {
 			val position = new Position(Random.nextInt(width), Random.nextInt(height))
-			if (position.isOnObstacle(this)) foodPosition
+			if (isOnObstacle(position)) foodPosition
 			return position
 		}
-
 		return foodPosition
+	}
 
+	def isPlayerOut: Boolean =
+		playerPosition.x < 0 || playerPosition.x > width ||
+		playerPosition.y < 0 || playerPosition.y > height
+
+	def isPlayerOnObstacle: Boolean = isOnObstacle(playerPosition)
+
+	def isOnObstacle(position: Position): Boolean = {
+		snake.filter { cell: Cell =>
+			(cell.x == position.x) && (cell.y == position.y)
+		}.length > 1
 	}
 
 }
@@ -171,13 +177,5 @@ class Position(val x: Int, val y: Int) {
 	def ==(pos: Position) = pos.x == x && pos.y == y
 
 	def +(move: Tuple2[Int, Int]) = new Position(x + move._1, y + move._2)
-
-	def isOut(grid: Grid): Boolean = x < 0 || x >= grid.width || y < 0 || y >= grid.height
-
-	def isOnObstacle(grid: Grid): Boolean = {
-		grid.grid.filter { cell: Cell =>
-			(cell.x == x) && (cell.y == y)
-		}.length > 0
-	}
 
 }
